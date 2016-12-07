@@ -1,0 +1,150 @@
+ObjectSensorName - English
+========================
+
+.. toctree::
+   :hidden:
+
+   index_j
+
+
+Introduction
+============
+
+
+For a full list of classes and functions, see the `API documentation`_.
+
+.. _`API Documentation`:
+   doxygen/html/index.html
+
+Requirements
+============
+
+ObjectSensor uses the `CMake build system`. You will need at least version
+2.8 to be able to build the component.
+
+.. _`CMAke build system`:
+   http://www.cmake.org
+
+
+Installation
+============
+
+Binary
+------
+
+Users of Windows can install the component using the binary installer. This
+will install the component and all its necessary dependencies. It is the
+recommended method of installation in Windows.
+
+- Download the installer from the website.
+- Double-click the executable file to begin installation.
+- Follow the instructions to install the component.
+- You may need to restart your computer for environment variable changes
+  to take effect before using the component.
+
+The component can be launched by double-clicking the
+``ObjectSensorComp`` executable. The ``ObjectSensor`` library
+is available for loading into a manager, using the initialisation function
+``ObjectSensorInit``.
+
+From source
+-----------
+
+Follow these steps to install ObjectSensor from source in any operating
+system:
+
+- Download the source, either from the repository or a source archive,
+  and extract it somewhere::
+
+    tar -xvzf ObjectSensor-1.0.0.tar.gz
+
+- Change to the directory containing the extracted source::
+
+    cd ObjectSensor-1.0.0
+
+- Create a directory called ``build``::
+
+    mkdir build
+
+- Change to that directory::
+
+    cd build
+
+- Run cmake or cmake-gui::
+
+    cmake ../
+
+- If no errors occurred, run make::
+
+    make
+
+- Finally, install the component. Ensure the necessary permissions to
+  install into the chosen prefix are available::
+
+    make install
+
+- The install destination can be changed by executing ccmake and changing
+  the variable ``CMAKE_INSTALL_PREFIX``::
+
+    ccmake ../
+
+The component is now ready for use. See the next section for instructions on
+configuring the component.
+
+ObjectSensor can be launched in stand-alone mode by executing the
+``ObjectSensorComp`` executable (installed into ``${prefix}/components/bin``).
+Alternatively, ``libObjectSensor.so`` can be loaded into a manager, using the
+initialisation function ``ObjectSensorInit``. This shared object can be found in
+``${prefix}/components/lib`` or ``${prefix}/components/lib64``.
+
+
+Configuration
+=============
+
+The available configuration parameters are described below:
+
+================ ================== ================ ======
+Parameter        Data type          Default Value    Effect
+================ ================== ================ ======
+CfgName          string             cfg/sample.cfg   参照画像設定ファイル名及びパスを指定する
+SIFT_Eehreshold  double             10               カメラ画像に対するSIFT特徴量の設定項目
+SIFT_Sigma       double             0.5              カメラ画像に対するSIFT特徴量の設定項目
+SIFT_nLevels     int                3                カメラ画像に対するSIFT特徴量の設定項目
+SIFT_nOctaves    int                -1               カメラ画像に対するSIFT特徴量の設定項目
+Display          string             on               物体の検出及び位置推定結果を描画した画像の表示・非表示を設定する<br/>"on":表示<br/>"off":非表示
+ObjName          string             None             物体名を記述することで，使用する参照画像を指定する
+================ ================== ================ ======
+
+Ports
+=====
+
+The ports provided by the component are described below:
+
+=============== =========== ============================== =======
+Name            Type        Data type                      Purpose
+=============== =========== ============================== =======
+SingleImage     InPort      Img::TimedCameraImage          カメラでキャプチャしたRGB画像を入力する.
+ObjectPose      OutPort     RTC::TimedDoubleSeq            カメラ座標系における物体の位置・姿勢を同次変換行列により出力する.
+ResultImg       OutPort     Img::TimedCameraImage          検出および位置姿勢推定結果を描画したRGB画像を出力する.
+AcceptModelService ServicePort AcceptModelService             
+=============== =========== ============================== =======
+
+Examples
+========
+
+An example configuration file is provided in the
+``${prefix}/components/share/ObjectSensor/examples/conf/`` directory.
+
+Changelog
+=========
+
+
+
+License
+=======
+
+This software is developed at the National Institute of Advanced
+Industrial Science and Technology. Approval number H23PRO-????. This
+software is licensed under the Lesser General Public License. See
+COPYING.LESSER.
+
