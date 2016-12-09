@@ -12,6 +12,15 @@
 #include<opencv2/opencv.hpp>
 #include <opencv2/xfeatures2d/nonfree.hpp>
 
+cv::Mat imageC;
+cv::Mat imageO;
+cv::Mat imageOC;
+cv::Mat Rmodel;
+cv::Mat Tmodel;
+std::vector<cv::KeyPoint>keypoint1;//検出されたキーポイントを記録
+cv::Ptr<cv::FeatureDetector> detector;
+cv::Ptr<cv::FeatureDetector> extractor;
+cv::Mat descriptor1;
 
 
 
@@ -33,8 +42,8 @@ static const char* objectsensor_spec[] =
     // Configuration variables
     "conf.default.CfgName", "cfg/demo.cfg",
     "conf.default.SIFT_Eehreshold", "10",
-    "conf.default.SIFT_Sigma", "0.5",
-    "conf.default.SIFT_nLevels", "3",
+    "conf.default.SIFT_Sigma", "1.6",
+    "conf.default.SIFT_nLevels", "0",
     "conf.default.SIFT_nOctaves", "-1",
     "conf.default.Display", "on",
     "conf.default.ObjName", "None",
@@ -119,8 +128,8 @@ RTC::ReturnCode_t ObjectSensor::onInitialize()
   // Bind variables and configuration variable
   bindParameter("CfgName", m_CfgName, "cfg/demo.cfg");
   bindParameter("SIFT_Eehreshold", m_SIFT_Eehreshold, "10");
-  bindParameter("SIFT_Sigma", m_SIFT_Sigma, "0.5");
-  bindParameter("SIFT_nLevels", m_SIFT_nLevels, "3");
+  bindParameter("SIFT_Sigma", m_SIFT_Sigma, "1.6");
+  bindParameter("SIFT_nLevels", m_SIFT_nLevels, "0");
   bindParameter("SIFT_nOctaves", m_SIFT_nOctaves, "-1");
   bindParameter("Display", m_Display, "on");
   bindParameter("ObjName", m_ObjName, "None");
@@ -205,9 +214,11 @@ RTC::ReturnCode_t ObjectSensor::onActivated(RTC::UniqueId ec_id)
 
 	// std::cout << "Image read finish " << std::endl;
 
-	//extractor = cv::xfeatures2d::SIFT::create(m_SIFT_nLevels, 3, 0.04, m_SIFT_Eehreshold, m_SIFT_Sigma);//SIFT
-	//detector = cv::xfeatures2d::SIFT::create(m_SIFT_nLevels, 3, 0.04, m_SIFT_Eehreshold, m_SIFT_Sigma);
+	extractor = cv::xfeatures2d::SIFT::create(m_SIFT_nLevels, 3, 0.04, m_SIFT_Eehreshold, m_SIFT_Sigma);//SIFT
+	detector = cv::xfeatures2d::SIFT::create(m_SIFT_nLevels, 3, 0.04, m_SIFT_Eehreshold, m_SIFT_Sigma);
 
+	//extractor = cv::xfeatures2d::SIFT::create();//SIFT
+	//detector = cv::xfeatures2d::SIFT::create();
 
 
 	// check connection of service port
@@ -262,6 +273,32 @@ RTC::ReturnCode_t ObjectSensor::onActivated(RTC::UniqueId ec_id)
 
 
 	//ここまで
+
+	//モデル画像読み込み
+	int widthO = _sift.refer.iimg.w;
+	int heightO = _sift.refer.iimg.h;
+	int channelsO = _sift.refer.iimg.getPixelSize();
+	int remnant = 0;
+
+	imageO.create(heightO, widthO, CV_32FC1);
+
+	//std::cout << "width : " << widthO << std::endl << "height : " << heightO << std::endl << "channel : " << channelsO << std::endl;
+
+	for (int i = 0; i < heightO; i++)
+	{
+		memcpy(&imageO.data[i*imageO.step], &_sift.refer.iimg.data[i*widthO*channelsO], sizeof(float)*widthO);
+	}
+
+	cv::Rect roi(_sift.refer.xywh[0], _sift.refer.xywh[1], _sift.refer.xywh[2], _sift.refer.xywh[3]);
+	imageOC = imageO(roi);
+	imageOC.convertTo(imageOC, CV_8U, 255);
+	
+	//モデル画像
+	detector->detect(imageOC, keypoint1);//img1の特徴点を検出
+	extractor->compute(imageOC, keypoint1, descriptor1);
+	//cv::drawKeypoints(imageOC, keypoint1, imageOC);
+
+
 	
   return RTC::RTC_OK;
 }
@@ -289,10 +326,12 @@ RTC::ReturnCode_t ObjectSensor::onExecute(RTC::UniqueId ec_id)
 	}
 
 	// model port is not connected, find target object
+	/*
 	if (_modelC < 0) {
 		std::cout << "model port is not conected. finding object in onExecute : " << findObject()
 			<< std::endl;
 	}
+	*/
 
 	// model port is connected and set new model
 	//if( ( _modelC>0 && _ServiceFlag ) ){ return RTC::RTC_OK;}
@@ -319,6 +358,32 @@ RTC::ReturnCode_t ObjectSensor::onExecute(RTC::UniqueId ec_id)
 			const_cast<char*> (m_ObjName.c_str()))) {
 			std::cout << "... failed." << std::endl;
 			m_ObjName = "None";
+		}
+		else
+		{
+			//モデル画像読み込み
+			int widthO = _sift.refer.iimg.w;
+			int heightO = _sift.refer.iimg.h;
+			int channelsO = _sift.refer.iimg.getPixelSize();
+			int remnant = 0;
+
+
+			imageO.create(heightO, widthO, CV_32FC1);
+
+			for (int i = 0; i < heightO; i++)
+			{
+				memcpy(&imageO.data[i*imageO.step], &_sift.refer.iimg.data[i*widthO*channelsO], sizeof(float)*widthO);
+			}
+
+			cv::Rect roi(_sift.refer.xywh[0], _sift.refer.xywh[1], _sift.refer.xywh[2], _sift.refer.xywh[3]);
+			imageOC = imageO(roi);
+			imageOC.convertTo(imageOC, CV_8U, 255);
+
+			//モデル画像
+			std::vector<cv::KeyPoint>keypoint1;//検出されたキーポイントを記録
+			detector->detect(imageOC, keypoint1);//img1の特徴点を検出
+			extractor->compute(imageOC, keypoint1, descriptor1);
+
 		}
 		_readModelFlag = false; // model is loaded
 	}
@@ -385,6 +450,10 @@ bool ObjectSensor::findObject() {
 	static RTC::Time pTm; // previous time
 	RTC::Time cTm; // current time
 	bool found_2d(false), found_3d(false); // flag: success/failed of detection and pose estimation
+	double Ho[9] ;
+	double Rco[9] = { 0.0 }, Tco[3] = { 0.0 };
+	cv::Mat imgRes;
+
 
 	// start timer
 	timer.start();
@@ -471,6 +540,25 @@ bool ObjectSensor::findObject() {
 			conv.convertImage(&imgL, &_grayL, IMGH::PIXEL_FLOAT);//グレースケールに変えてる？
 			//std::cout << " ... done" << std::endl;
 		}
+
+		int width = m_SingleImage.data.image.width;
+		int height = m_SingleImage.data.image.height;
+		int channels = (m_SingleImage.data.image.format == CF_GRAY) ? 1 :
+			(m_SingleImage.data.image.format == CF_RGB) ? 3 :
+			(m_SingleImage.data.image.raw_data.length() / width / height);
+		if (channels == 3)
+			imageC.create(height, width, CV_8UC3);
+		else
+			imageC.create(height, width, CV_8UC1);
+
+		for (int i = 0; i < height; i++){
+			memcpy(&imageC.data[i*imageC.step],
+				&m_SingleImage.data.image.raw_data[i*width*channels],
+				sizeof(unsigned char)*width*channels);
+		}
+
+		cv::cvtColor(imageC, imageC, CV_BGR2RGB);
+
 		
 		// check time of conversion
 		time_log[1] = timer.checkTime();
@@ -480,53 +568,218 @@ bool ObjectSensor::findObject() {
 		// check time of SIFT extruction
 		time_log[3] = timer.checkTime();
 		
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		//カメラ画像
+		std::vector<cv::KeyPoint>keypoint2;
+		detector->detect(imageC, keypoint2);//img2の特徴点を検出
+		cv::Mat descriptor2;
+		extractor->compute(imageC, keypoint2, descriptor2);
+		//cv::drawKeypoints(imageC, keypoint2, imageC);
+
+		cv::Ptr<cv::DescriptorMatcher> matcher;
+		matcher = cv::DescriptorMatcher::create("BruteForce");
+		std::vector<cv::DMatch> matches, matches12, matches21;
+		matcher->match(descriptor1, descriptor2, matches12);
+		matcher->match(descriptor2, descriptor1, matches21);
+
+		for (size_t k = 0; k < matches12.size(); k++)
+		{
+			cv::DMatch forward = matches12[k];
+			cv::DMatch backward = matches21[forward.trainIdx];
+			if (backward.trainIdx == forward.queryIdx)
+				matches.push_back(forward);
+		}
+
+		//最小距離//今回は必要ない？
+		double min_dist = DBL_MAX;//
+		for (int l = 0; l < (int)matches.size(); l++)
+		{
+			double dist = matches[l].distance;
+			if (dist < min_dist)
+			{
+				min_dist = dist;
+			}
+
+		}
+		//良いペアのみ残す
+		std::vector<cv::DMatch>good_matches;
+		for (int k = 0; k < (int)matches.size(); k++)
+		{
+			if (matches[k].distance < 2.0/*どこからきた？*/*min_dist)
+			{
+				good_matches.push_back(matches[k]);
+			}
+		}
+
+		time_log[4] = timer.checkTime();
+
+		//cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+
+		//十分な対応点がある
+		if (good_matches.size() > 20)
+		{
+			std::vector<cv::Point2f>obj, scene,obj_h,scene_h;
+			for (int j = 0; j < (int)good_matches.size(); j++)
+			{
+				obj.push_back(keypoint1[good_matches[j].queryIdx].pt);
+				scene.push_back(keypoint2[good_matches[j].trainIdx].pt);
+				//ホモグラフィ推定用
+				
+				obj_h.push_back(keypoint1[good_matches[j].queryIdx].pt+cv::Point2f(_sift.refer.xywh[0], _sift.refer.xywh[1]));
+				scene_h.push_back(keypoint2[good_matches[j].trainIdx].pt );
+			
+			}
+
+
+			//ホモグラフィー行列の導出、ランザック処理してる？
+			cv::Mat masks;
+			H = cv::findHomography(obj_h, scene, masks, cv::RANSAC, 1);
+			H_v = cv::findHomography(obj, scene, masks, cv::RANSAC, 1);
+
+			std::vector<cv::DMatch> inlinerMatch;
+			for (size_t k = 0; k < masks.rows; ++k) {
+				uchar *inliner = masks.ptr<uchar>(k);
+				if (inliner[0] == 1) {
+					inlinerMatch.push_back(good_matches[k]);
+				}
+			}
+
+
+
+			//cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+			//cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes);
+
+
+			//行列が空ではない場合イフ文内に入る
+			if (!H.empty())
+			{
+				cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), 2);
+
+				std::vector<cv::Point2d>obj_corners(4), scene_corners(4);
+				//オブジェクトの大きさを指定
+				obj_corners[0] = scene_corners[0] = cv::Point2d(0, 0);
+				obj_corners[1] = scene_corners[1] = cv::Point2d(imageOC.cols, 0);
+				obj_corners[2] = scene_corners[2] = cv::Point2d(imageOC.cols, imageOC.rows);
+				obj_corners[3] = scene_corners[3] = cv::Point2d(0, imageOC.rows);
+
+				//ホモグラフィ行列の推定
+				cv::perspectiveTransform(obj_corners, scene_corners, H_v);
+
+
+				std::cout << "線で囲む" << std::endl;
+				//緑の線で囲む（開始点を元画像が左にあるので右にオフセット）
+				cv::line(imgRes, scene_corners[0] + cv::Point2d(imageOC.cols, 0), scene_corners[1] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
+				cv::line(imgRes, scene_corners[1] + cv::Point2d(imageOC.cols, 0), scene_corners[2] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
+				cv::line(imgRes, scene_corners[2] + cv::Point2d(imageOC.cols, 0), scene_corners[3] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
+				cv::line(imgRes, scene_corners[3] + cv::Point2d(imageOC.cols, 0), scene_corners[0] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
+				
+
+				//ホモグラフィ行列を配列に変換
+				for (int y = 0; y < 3; y++)
+				{
+					for (int x = 0; x < 3; x++)
+					{
+						Ho[y * 3 + x] = H.at<double>(y, x);
+					}
+				}
+
+				//Ho[8]が桁落ちして、１でなくなっているのを補正
+				if (0.99999<Ho[8]&&Ho[8]<1.000001)
+				{
+					Ho[8] = (double)1.0;
+				}
+
+
+
+				//SIFT特徴量の対応関係をチェック
+				std::cout << "start to match sift feature" << std::endl;
+				//found_2d = _sift.findSIFTPattern( Rco, Tco);
+				found_2d=_sift.getResult3DPosewithH(Ho,Rco, Tco);
+				//found_2d=_sift.getResult3DPose(Rco, Tco);
+				std::cout << "OpenCV H" << std::endl;
+				std::cout << H << std::endl;
+				time_log[4] = timer.checkTime();
+				std::cout << "   SIFT対応チェック:   " << time_log[4] << std::endl;
+				/*
+				if (found_2d) {
+				//３次元姿勢の推定
+				std::cout << "start to get Result 3D pose" << std::endl;
+				found_3d = _sift.getResult3DPose(Rco, Tco);
+				}
+				*/
+
+				// check time of pose estimation
+				time_log[5] = timer.checkTime();
+				std::cout << "三次元姿勢の推定:   " << time_log[5] << std::endl;
+
+
+
+				/*
+				RTcamera.create(3, 4, CV_64F);
+				
+				std::fstream ofs("test.log", std::ios::out | std::ios::app | std::ios::ate);
+				if (!ofs.is_open())
+				{
+					std::cout << "ファイルが開けません" << std::endl;
+					return -1;
+				}
+				*/
+
+			}
+			else
+			{
+				std::cout << "ホモグラフィ行列が空です" << std::endl;
+				cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(),2);
+			}
+		}
+		else
+		{
+			std::cout << "マッチング点が少なすぎます" << std::endl;
+			cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(),2);
+		}
+
+
+
+
+		////////////////////////////////////////////////////////////////////////テストで挿入
+
+
+
 
 		// find the reference pattern using 'B'oth ('L'eft and 'R'ight) pattern finders
-		double Rco[9] = { 0.0 }, Tco[3] = { 0.0 };
 
-		//SIFT特徴量の対応関係をチェック
-		std::cout << "start to match sift feature" << std::endl;
-		found_2d = _sift.findSIFTPattern();//マッチング？？
-		time_log[4] = timer.checkTime();
-		std::cout << "   SIFT対応チェック:   " << time_log[4]  << std::endl;
-		if (found_2d) {
-			//３次元姿勢の推定
-			std::cout << "start to get Result 3D pose" << std::endl;
-			found_3d = _sift.getResult3DPose(Rco, Tco);
-		}
-		// check time of pose estimation
-		time_log[5] = timer.checkTime();
-		std::cout << "三次元姿勢の推定:   " << time_log[5]  << std::endl;
+
+		
 
 		// display result
 		if (m_Display == "on") {
-			// get result image for display
-			IMGH::Image resimg;
+			// set result image size
+			m_ResultImg.data.image.width = imgRes.cols;
+			m_ResultImg.data.image.height = imgRes.rows;
+			m_ResultImg.data.image.format = CF_RGB;
+			// allocate buffer for result image
+			m_ResultImg.data.image.raw_data.length(imgRes.cols * imgRes.rows * 3);
+			cv::Mat imgResBGR;
+			imgRes.copyTo(imgResBGR);
+			cv::cvtColor(imgResBGR, imgResBGR, CV_BGR2RGB);
+			for (int j = 0; j < height; j++)
+			{
+				memcpy(&m_ResultImg.data.image.raw_data[j*imgResBGR.cols * channels], &imgResBGR.data[j*imgResBGR.step], sizeof(unsigned char)*imgResBGR.cols*channels);
+			}
 
-			_sift.getResultImage(&resimg, false, true, true);
-			// copy buffer
-			resimg.copyToBuffer(
-				(unsigned char*)&m_ResultImg.data.image.raw_data[0]);
+			cv::namedWindow("Result_Image", CV_WINDOW_AUTOSIZE);
+			cv::imshow("Result_Image", imgRes);
+			cv::waitKey(1);
 
-			//set time stamp
-			m_ResultImg.tm = m_SingleImage.tm;
-
-			// send img
-			m_ResultImgOut.write();
-
-			// show result image
-			_iv.setWindowSize(_grayL.w, _grayL.h);
-			_iv.setImagePixelType(PIXEL_RGB);
-			_iv.openWindow();
-			_iv.waitKeyDisplay(resimg.data, 10);
 		}
 		else if (m_Display == "off") {
-			_iv.closeWindow();
+			//_iv.closeWindow();
+			cv::destroyWindow("Result_Image");
 		}
 		std::cout << "Number of SIFT Feature Matching : "
 			<< _sift.match.matched_count << std::endl;
 		// push estimated pose from OutPort
-		if (found_2d && found_3d) {
+		if (found_2d) {
 			// push estimated pose
 			memcpy(&(m_ObjectPose.data[0]), &Rco[0], 3 * sizeof(double));
 			memcpy(&(m_ObjectPose.data[4]), &Rco[3], 3 * sizeof(double));
@@ -562,7 +815,7 @@ bool ObjectSensor::findObject() {
 			;
 		}
 		else{
-		if (found_2d && found_3d) {
+		if (found_2d ) {
 			fprintf(fp, "%s : ", m_ObjName.c_str());
 			for (int i = 0; i < 6; ++i)
 				fprintf(fp, "%.6f ", time_log[i]);

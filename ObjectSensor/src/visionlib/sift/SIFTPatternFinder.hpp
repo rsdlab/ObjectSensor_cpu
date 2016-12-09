@@ -75,9 +75,11 @@ public:
   
   // finding the pattern 
   bool findSIFTPattern(double Rco[9]=NULL, double Tco[3]=NULL);
+  bool findSIFTPatternwithH(double Ho[9],double Rco[9] = NULL, double Tco[3]=NULL );
   // inquiry of the results
   bool getResult2DPose(double corners[4][2]=NULL, double center[2]=NULL, double sa[2]=NULL);
   bool getResult3DPose(double Rco[9], double Tco[3]);
+  bool getResult3DPosewithH(double Ho[9],double Rco[9], double Tco[3]);
   bool getResultImage (IMGH::Image *image, bool show_features=true, bool show_matches=true, bool show_pose=true);
   //
   void printInfo(char *cmmt=NULL);

@@ -205,6 +205,44 @@ bool SIFTPatternFinder::findSIFTPattern(double Rco[9], double Tco[3])
 	return found;
 }
 
+
+//追加（ホモグラフィ代入）
+bool SIFTPatternFinder::findSIFTPatternwithH(double Ho[9], double Rco[9] , double Tco[3] )
+{
+	memset(timer_sec, 0, sizeof(timer_sec));
+	memset(this->Tco, 0, 3 * sizeof(double));
+	found = false;
+	UTIL::Timer timer;
+	timer.start();
+	scene.verbose = sift_verbose;
+	if (scene.fimg.h <= 0) {	// extract features
+		scene.extractFeatures(sift_nOctaves, sift_nLevels, sift_sigma, sift_ethreshold, use_gpu);//カメラ画像の特徴量抽出
+	}
+	timer_sec[0] = timer.checkTime();
+	if (refer.fimg.h <= 0 || scene.fimg.h <= 0) return false;
+	// match features from the reference and the scene, and find optimal affine transformation
+	if (0) match.use_timer = true;
+	found = match.findSIFTPattern(&refer, &scene);	// match features　マッチング
+	timer_sec[1] = timer.checkTime();
+	if (!found)
+	{
+		//std::cout << "Object Not Found" << std::endl<<"特徴量抽出 : "<<timer_sec[0]<<"マッチング時間 : "<<timer_sec[1];//追加
+		return false;
+	}
+	// calculate the 3D pose
+	if (Rco || Tco) found = getResult3DPosewithH(Ho,Rco, Tco);	// estimate pose
+	timer_sec[2] = timer.checkTime();
+	timer.stop();
+	if (0) {
+		match.printInfo();
+		printf("SIFTPatternFinder::findSIFTPattern timer:  Ext:%.4f  2D:%.4f  3D:%.4f\n", timer_sec[0], timer_sec[1], timer_sec[2]);
+	}
+	//printf("SIFTPatternFinder::findSIFTPattern timer:  Ext:%.4f  2D:%.4f  3D:%.4f\n", timer_sec[0], timer_sec[1], timer_sec[2]);
+
+	return found;
+}
+
+
 // ===================================================================
 // inquiry of the results
 // ===================================================================
@@ -233,6 +271,7 @@ bool SIFTPatternFinder::getResult3DPose(double Rco[9], double Tco[3])
   // Estimate the homography again, using rectified coordinates
   double rhomography[9];
   estimateHomographyRectified( rhomography );//ホモグラフィ行列を推測し、推測できなかったら１で配列を埋める
+
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Convert the homography to new 3D pose  (scene->Rco[9] and scene->Tco[3]),
   //   using the pose in the reference image (refp->Rcr[9] and  refp->Tcr[3]).
@@ -270,12 +309,108 @@ bool SIFTPatternFinder::getResult3DPose(double Rco[9], double Tco[3])
   if (Rco) G3M_COPY( Rco, this->Rco );
   if (Tco) G3V_COPY( Tco, this->Tco );
   
+  std::cout << "homography SIFT" << std::endl;
+  std::cout << "  [  " << Rco[0] << " " << Rco[1] << " " << Rco[2] << " " << Tco[0] << "  ]" << std::endl;
+  std::cout << "  [  " << Rco[3] << " " << Rco[4] << " " << Rco[5] << " " << Tco[1] << "  ]" << std::endl;
+  std::cout << "  [  " << Rco[6] << " " << Rco[7] << " " << Rco[8] << " " << Tco[2] << "  ]" << std::endl;
+
+
   // check the result ( invalid if it's closer than 10cm or farther than 10m )
   double dist = G3V_LENGTH( this->Tco );
   bool   ret = (dist > 0.10 && dist < 10.0 && this->Tco[2] > 0.1);
   if (verbose) printf("[sift] 3D Pose : %4s  Rco[9] Tco[3]=(%.2f %.2f %.2f)\n", 
 		      (ret ? "good" : "BAD"), this->Tco[0], this->Tco[1], this->Tco[2]);
   return ret;
+}
+
+
+bool SIFTPatternFinder::getResult3DPosewithH(double Ho[9] , double Rco[9], double Tco[3])
+{
+	// Estimate the pose of the found pattern in 'scn', and save
+	//   the result in 'Rco[9]' and 'Tco[3]'.
+	double *R = this->Rco, *T = this->Tco;
+	if (Tco) memset(Tco, 0, 3 * sizeof(double));//初期化？
+	
+	if (refer.fimg.h <= 0) return false;
+
+	if (camera.cc[0] < scene.iimg.w*0.20 || camera.cc[0] > scene.iimg.w*0.80) {
+		if (verbose) printf("[sift] Pose estimation FAILED .. invalid camera int. parameters (%d x %d)\n", camera.wh[0], camera.wh[1]);
+		return false;//エラー?
+	}
+	for (int i = 0; i < 9; i++)
+	{
+		match.homography[i] = Ho[i];
+	}
+	if (match.homography[8] != 1.0) {
+		if (verbose) printf("[sift] Pose estimation FAILED .. invalid homography\n");
+		return false;
+	}
+
+	// Estimate the homography again, using rectified coordinates
+	double rhomography[9];
+
+	//estimateHomographyRectified(rhomography);//ホモグラフィ行列を推測し、推測できなかったら１で配列を埋める
+
+
+	for (int i = 0; i < 9; i++)
+	{
+		rhomography[i] = Ho[i];
+	}
+	
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Convert the homography to new 3D pose  (scene->Rco[9] and scene->Tco[3]),
+	//   using the pose in the reference image (refp->Rcr[9] and  refp->Tcr[3]).
+	MTX::Matrix<double> H(3, 3, rhomography), K, Kinv(3, 3), RT(3, 4), RTnew;
+	MTX::MatrixSolver<double> solver;
+	// set camera intrinsic matrix K and its inverse
+	K.assign(3, 3, camera.fc[0], 0.0, camera.cc[0],
+		0.0, camera.fc[1], camera.cc[1], 0.0, 0.0, 1.0);//カメラパラメータセット
+	solver.inverseByGaussJordan(3, K.data, Kinv.data);//逆行列を求める
+	RT.copySubMatrixFrom(0, 0, 3, 3, Rcf); //モデル画像のRTをコピー？
+	RT.copySubMatrixFrom(0, 3, 3, 1, Tcf); //
+
+	// calculate the new pose of the pattern in the scene
+	//   K * [Rco' Tco'] = s * H * K * [Rcf Tcf]
+	//       [Rco' Tco'] = s * K^ * H * K * [Rcf Tcf]
+	RTnew.mult(Kinv, H, K, RT);//カメラに移っているモデルのRTを求めている？
+	RTnew.data[3] = RTnew.data[3] * 10;
+	RTnew.data[7] = RTnew.data[7] * 10;
+	RTnew.data[11] = RTnew.data[11] * 10;
+
+	// normalize RTnew
+	double len0 = G3V_LENGTH(RTnew.data + 0);
+	double len1 = G3V_LENGTH(RTnew.data + 4);
+	double len2 = G3V_LENGTH(RTnew.data + 8);
+	RTnew.divValue((len0 + len1 + len2) / 3.0);//法線ベクトル？
+	memcpy(R + 0, RTnew.data + 0, 3 * sizeof(double));  T[0] = RTnew.data[3];
+	memcpy(R + 3, RTnew.data + 4, 3 * sizeof(double));  T[1] = RTnew.data[7];
+	memcpy(R + 6, RTnew.data + 8, 3 * sizeof(double));  T[2] = RTnew.data[11];//結果をクラスに書き込む
+	// make the rotation matrix orthogonal 回転直行行列？を作る
+	// Note that above linear equation is ill-conditioned, and 
+	//   the singular values S[3] are in the range of [ 0.3 ~ 2.0 ].
+	double U[9], S[3], V[9];  // R = U * S * Vt
+	solver.SVD(3, 3, R, U, S, V);
+	G3M_MUL_MMt(R, U, V);//回転行列を求めてる?
+
+	// Here, we have decided 12 unknowns using 8 DOF information. Consequently, 
+	//   the returned pose is not good enough. We optimize it with nonlinear LM method.
+	//   printf("[sift] initial rotation singular values: %.4f %.4f %.4f\n", S[0], S[1], S[2]);
+	optimizePoseForHomography(R, T);//ホモグラフィ行列に直す？
+	if (Rco) G3M_COPY(Rco, this->Rco);
+	if (Tco) G3V_COPY(Tco, this->Tco);
+
+	std::cout << "homography SIFT OpenCV" << std::endl;
+	std::cout << "  [  " << Rco[0] << " " << Rco[1] << " " << Rco[2] << " " << Tco[0] << "  ]" << std::endl;
+	std::cout << "  [  " << Rco[3] << " " << Rco[4] << " " << Rco[5] << " " << Tco[1] <<"  ]" << std::endl;
+	std::cout << "  [  " << Rco[6] << " " << Rco[7] << " " << Rco[8] << " " << Tco[2] <<"  ]" << std::endl;
+
+
+	// check the result ( invalid if it's closer than 10cm or farther than 10m )
+	double dist = G3V_LENGTH(this->Tco);
+	bool   ret = (dist > 0.10 && dist < 10.0 && this->Tco[2] > 0.1);
+	if (verbose) printf("[sift] 3D Pose : %4s  Rco[9] Tco[3]=(%.2f %.2f %.2f)\n",
+		(ret ? "good" : "BAD"), this->Tco[0], this->Tco[1], this->Tco[2]);
+	return ret;
 }
 
 bool SIFTPatternFinder::getResultImage(IMGH::Image *rimg, bool show_features, bool show_matches, bool show_pose)
@@ -397,7 +532,7 @@ bool SIFTPatternFinder::estimateHomographyRectified(double homog[9])
   int  i, cnt;  double rxy[2], sxy[2];//referxyとsceanxy？
   for (i=cnt=0; i < match.matched_count; i++) {
     SIFTFeature *rfp = match.matches[i].rfp;  if (!rfp) continue;
-    SIFTFeature *sfp = match.matches[i].sfp;  if (!sfp) continue;//どちらかが入ってなかったら処理をしない
+    SIFTFeature *sfp = match.matches[i].sfp;  if (!sfp) continue;//どちらかが入ってなかったら処理をしない.特徴点を全部見たかを確認してる
     G2V_COPY( rxy, rfp->data );//配列コピー
 	camera.undistortUV( rxy, rxy );//歪み補正？
     G2V_COPY( sxy, sfp->data );
@@ -443,7 +578,7 @@ void SIFTPatternFinder::optimizePoseForHomography(double Rco[9], double Tco[3])
   struct stLM lmdata;
   lmdata.cam = &camera;
   // get the four corners of the homography in the scene
-  double x=refer.xywh[0], y=refer.xywh[1], w=refer.xywh[2], h=refer.xywh[3];
+  double x=refer.xywh[0], y=refer.xywh[1], w=refer.xywh[2], h=refer.xywh[3];//モデルの範囲読み込み
   double rp[4][2] = { {x+w,y+h}, {x+w,y}, {x,y}, {x,y+h} };
   MTH::Homography<double> H(match.homography);
   for (int i=0; i<4; i++) H.transform( rp[i][0], rp[i][1], lmdata.ip[i] );

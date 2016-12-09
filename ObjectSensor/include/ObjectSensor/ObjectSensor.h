@@ -387,7 +387,7 @@ class ObjectSensor
 
 	 //ホモグラフィ行列
 	 cv::Mat H;
-
+	 cv::Mat H_v;
 
 
  public:
