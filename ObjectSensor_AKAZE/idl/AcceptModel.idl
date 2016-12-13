@@ -1,0 +1,21 @@
+#ifndef _ACCEPTMODEL_IDL_
+#define _ACCEPTMODEL_IDL_
+
+//*******************************************************
+// IDL: definition for setting model 
+//
+// @author K.Iwane, Osaka Univ.
+// @last modified Oct., 2011
+//
+//*******************************************************
+
+// interface for model provider
+interface AcceptModelService{
+	typedef sequence<octet> OctetSeq;
+
+	// set model
+	// @param model: a model of something
+	void setModel(in OctetSeq model);
+};
+
+#endif // #ifndef _ACCEPTMODEL_IDL_

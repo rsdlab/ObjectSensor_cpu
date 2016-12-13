@@ -13,13 +13,14 @@
 #include <rtm/idl/BasicDataTypeSkel.h>
 #include <rtm/idl/ExtendedDataTypesSkel.h>
 #include <rtm/idl/InterfaceDataTypesSkel.h>
-
 #include<Img.hh>
+
 
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AcceptModelSVC_impl.h"
 
+// </rtc-template>
 //ここから
 
 // User's functions headers
@@ -40,7 +41,7 @@
 using namespace ALTH;
 using namespace ALTH::UTIL;
 //ここまで
-// </rtc-template>
+
 
 // Service Consumer stub headers
 // <rtc-template block="consumer_stub_h">
@@ -256,7 +257,7 @@ class ObjectSensor
   /*!
    * 参照画像設定ファイル名及びパスを指定する
    * - Name:  CfgName
-   * - DefaultValue: cfg/sample.cfg
+   * - DefaultValue: cfg/demo.cfg
    */
   std::string m_CfgName;
   /*!
@@ -268,13 +269,13 @@ class ObjectSensor
   /*!
    * カメラ画像に対するSIFT特徴量の設定項目
    * - Name:  SIFT_Sigma
-   * - DefaultValue: 0.5
+   * - DefaultValue: 1.6
    */
   double m_SIFT_Sigma;
   /*!
    * カメラ画像に対するSIFT特徴量の設定項目
    * - Name:  SIFT_nLevels
-   * - DefaultValue: 3
+   * - DefaultValue: 0
    */
   int m_SIFT_nLevels;
   /*!
@@ -343,6 +344,7 @@ class ObjectSensor
   AcceptModelServiceSVC_impl m_ModelAcceptor;
   
   // </rtc-template>
+  
 
   // Consumer declaration
   // <rtc-template block="consumer_declare">
@@ -351,7 +353,6 @@ class ObjectSensor
 
  private:
   // <rtc-template block="private_attribute">
-
 	 //ここから
 	 SIFTPatternFinder _sift;  // sift pattern finder
 	 IMGH::Image _grayL, _grayR;	  // float images for CPU
@@ -376,6 +377,8 @@ class ObjectSensor
 	 // main function for object recognition
 	 bool findObject();
 
+	 void invokeEvent(const std::string &ev);
+
 	 //カメラパラメータ
 	 cv::Mat CCM;
 
@@ -388,14 +391,6 @@ class ObjectSensor
 	 //ホモグラフィ行列
 	 cv::Mat H;
 	 cv::Mat H_v;
-
-
- public:
-	 // when "m_ModelAcceptor->setModel()" is called by other components,
-	 // this function is executed.
-	 void invokeEvent(const std::string &ev);
-
-	 //ここまで
   
   // </rtc-template>
 

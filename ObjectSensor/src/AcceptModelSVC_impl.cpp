@@ -4,7 +4,7 @@
  * @brief Service implementation code of AcceptModel.idl
  *
  */
-
+#include<iostream>
 #include "AcceptModelSVC_impl.h"
 
 /*
@@ -28,11 +28,12 @@ AcceptModelServiceSVC_impl::~AcceptModelServiceSVC_impl()
 void AcceptModelServiceSVC_impl::setModel(const AcceptModelService::OctetSeq& model)
 {
   // Please insert your code here and remove the following warning pragma
-	while(1){
-		if(!_setModelFlag){
-			break;
+		while(1){
+			std::cout << "ƒtƒ‰ƒO‘Ò‚¿" << std::endl;
+			if (!_setModelFlag){
+				break;
+			}
 }
-  }
 
 	std::string cmodel((char*)&model[0], model.length());
 	std::cout << "AcceptModelServiceSVC_impl::setModel() is called.:" << cmodel << std::endl;

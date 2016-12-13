@@ -10,14 +10,13 @@
 #ifndef ACCEPTMODELSVC_IMPL_H
 #define ACCEPTMODELSVC_IMPL_H
  
-/////////////////////////////‚±‚±‚©‚ç
 
 #include<string>
 #include<iostream>
 #include"MultiCastEventListener.h"
 using namespace ALTH;
 
-/////////////////////////////‚±‚±‚Ü‚Å
+
 
 /*!
  * @class AcceptModelServiceSVC_impl
@@ -25,8 +24,8 @@ using namespace ALTH;
  */
 class AcceptModelServiceSVC_impl
  : public virtual POA_AcceptModelService,
-   public virtual PortableServer::RefCountServantBase,
-   public EventSource<std::string>
+ public virtual PortableServer::RefCountServantBase,
+ public EventSource<std::string>
 {
  private:
    // Make sure all instances are built on the heap by making the
@@ -45,17 +44,16 @@ class AcceptModelServiceSVC_impl
 
    // attributes and operations
    void setModel(const AcceptModelService::OctetSeq& model);
-
    //‚±‚±‚©‚ç
 
 private:
 	bool _setModelFlag;
 public:
 	inline void lockSetModel(){ _setModelFlag = true; }
-	inline void unlockSetModel(){_setModelFlag = false;}
+	inline void unlockSetModel(){ _setModelFlag = false; }
 
 
-   //‚±‚±‚Ü‚Å
+	//‚±‚±‚Ü‚Å
 
 };
 

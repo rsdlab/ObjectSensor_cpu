@@ -10,7 +10,7 @@
 #   --module-desc='ObjectSensor' --module-version=1.0.0 --module-vendor=VenderName 
 #   --module-category=Category --module-comp-type=COMMUTATIVE 
 #   --module-act-type=PERIODIC --module-max-inst=1 
-#   --config=CfgName:string:cfg/sample.cfg --config=SIFT_Eehreshold:double:10 --config=SIFT_Sigma:double:0.5 --config=SIFT_nLevels:int:3 --config=SIFT_nOctaves:int:-1 --config=Display:string:on --config=ObjName:string:None 
+#   --config=CfgName:string:cfg/demo.cfg --config=SIFT_Eehreshold:double:10 --config=SIFT_Sigma:double:1.6 --config=SIFT_nLevels:int:0 --config=SIFT_nOctaves:int:-1 --config=Display:string:on --config=ObjName:string:None 
 #   --inport=SingleImage:Img::TimedCameraImage --outport=ObjectPose:RTC::TimedDoubleSeq --outport=ResultImg:Img::TimedCameraImage 
 #   --service-idl=C:\Users\rsdlab\workspace\TakamidoComp\visionidl\AcceptModel.idl 
 #   --service=Model:AcceptModelService:AcceptModelService 
@@ -162,7 +162,7 @@ Lang Type:
 		Name:             CfgName
 		Description:     参照画像設定ファイル名及びパスを指定する
 		Type:            string
-		DefaultValue:     cfg/sample.cfg
+		DefaultValue:     cfg/demo.cfg
 		Unit:            
 		Range:           
 		Constraint:      
@@ -178,7 +178,7 @@ Lang Type:
 		Name:             SIFT_Sigma
 		Description:     カメラ画像に対するSIFT特徴量の設定項目
 		Type:            double
-		DefaultValue:     0.5
+		DefaultValue:     1.6
 		Unit:            
 		Range:           
 		Constraint:      
@@ -186,7 +186,7 @@ Lang Type:
 		Name:             SIFT_nLevels
 		Description:     カメラ画像に対するSIFT特徴量の設定項目
 		Type:            int
-		DefaultValue:     3
+		DefaultValue:     0
 		Unit:            
 		Range:           
 		Constraint:      

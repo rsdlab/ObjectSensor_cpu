@@ -22,8 +22,6 @@ cv::Ptr<cv::FeatureDetector> detector;
 cv::Ptr<cv::FeatureDetector> extractor;
 cv::Mat descriptor1;
 
-
-
 // Module specification
 // <rtc-template block="module_spec">
 static const char* objectsensor_spec[] =
@@ -74,6 +72,14 @@ ObjectSensor::ObjectSensor(RTC::Manager* manager)
 
     // </rtc-template>
 {
+	
+}
+
+/*!
+ * @brief destructor
+ */
+ObjectSensor::~ObjectSensor()
+{
 	//ここから
 	// Registration: InPort/OutPort/Service
 	// <rtc-template block="registration">
@@ -92,13 +98,6 @@ ObjectSensor::ObjectSensor(RTC::Manager* manager)
 	registerPort(m_ModelPort);
 
 	//ここまで
-}
-
-/*!
- * @brief destructor
- */
-ObjectSensor::~ObjectSensor()
-{
 }
 
 
@@ -134,6 +133,7 @@ RTC::ReturnCode_t ObjectSensor::onInitialize()
   bindParameter("Display", m_Display, "on");
   bindParameter("ObjName", m_ObjName, "None");
   // </rtc-template>
+  
   //ここから
 
   _sift.verbose = true;
@@ -178,7 +178,8 @@ RTC::ReturnCode_t ObjectSensor::onInitialize()
 	  fclose(fp);
   }
 
-	//ここまで
+  //ここまで
+
   return RTC::RTC_OK;
 }
 
@@ -219,7 +220,8 @@ RTC::ReturnCode_t ObjectSensor::onActivated(RTC::UniqueId ec_id)
 
 	//extractor = cv::xfeatures2d::SIFT::create();//SIFT
 	//detector = cv::xfeatures2d::SIFT::create();
-
+	//extractor = cv::AKAZE::create();
+	//detector = cv::AKAZE::create();
 
 	// check connection of service port
 	ALTH::UTIL::CheckPortConnection cpc;
@@ -247,7 +249,7 @@ RTC::ReturnCode_t ObjectSensor::onActivated(RTC::UniqueId ec_id)
 	//参照モデルの読み込み
 	std::cout << "loading reference pattern[" << m_ObjName << "] from file"
 		<< std::endl;
-	
+
 	if (!_sift.loadReferencePattern(const_cast<char*> (m_CfgName.c_str()),
 		const_cast<char*> (m_ObjName.c_str()))) {
 		std::cout << "...failed : reference image doesn't exist" << std::endl;
@@ -292,14 +294,12 @@ RTC::ReturnCode_t ObjectSensor::onActivated(RTC::UniqueId ec_id)
 	cv::Rect roi(_sift.refer.xywh[0], _sift.refer.xywh[1], _sift.refer.xywh[2], _sift.refer.xywh[3]);
 	imageOC = imageO(roi);
 	imageOC.convertTo(imageOC, CV_8U, 255);
-	
+
 	//モデル画像
 	detector->detect(imageOC, keypoint1);//img1の特徴点を検出
 	extractor->compute(imageOC, keypoint1, descriptor1);
 	//cv::drawKeypoints(imageOC, keypoint1, imageOC);
 
-
-	
   return RTC::RTC_OK;
 }
 
@@ -309,7 +309,7 @@ RTC::ReturnCode_t ObjectSensor::onDeactivated(RTC::UniqueId ec_id)
 	//ここから
 	_iv.closeWindow();
 	m_ModelAcceptor.lockSetModel();
-
+	cv::destroyAllWindows();
 	//ここまで
 
   return RTC::RTC_OK;
@@ -328,8 +328,8 @@ RTC::ReturnCode_t ObjectSensor::onExecute(RTC::UniqueId ec_id)
 	// model port is not connected, find target object
 	/*
 	if (_modelC < 0) {
-		std::cout << "model port is not conected. finding object in onExecute : " << findObject()
-			<< std::endl;
+	std::cout << "model port is not conected. finding object in onExecute : " << findObject()
+	<< std::endl;
 	}
 	*/
 
@@ -380,7 +380,7 @@ RTC::ReturnCode_t ObjectSensor::onExecute(RTC::UniqueId ec_id)
 			imageOC.convertTo(imageOC, CV_8U, 255);
 
 			//モデル画像
-			std::vector<cv::KeyPoint>keypoint1;//検出されたキーポイントを記録
+			//std::vector<cv::KeyPoint>keypoint1;//検出されたキーポイントを記録
 			detector->detect(imageOC, keypoint1);//img1の特徴点を検出
 			extractor->compute(imageOC, keypoint1, descriptor1);
 
@@ -403,6 +403,7 @@ RTC::ReturnCode_t ObjectSensor::onExecute(RTC::UniqueId ec_id)
 	// }
 
 	//ここまで
+
   return RTC::RTC_OK;
 }
 
@@ -439,7 +440,6 @@ RTC::ReturnCode_t ObjectSensor::onRateChanged(RTC::UniqueId ec_id)
   return RTC::RTC_OK;
 }
 */
-
 //ここから
 
 bool ObjectSensor::findObject() {
@@ -450,7 +450,7 @@ bool ObjectSensor::findObject() {
 	static RTC::Time pTm; // previous time
 	RTC::Time cTm; // current time
 	bool found_2d(false), found_3d(false); // flag: success/failed of detection and pose estimation
-	double Ho[9] ;
+	double Ho[9];
 	double Rco[9] = { 0.0 }, Tco[3] = { 0.0 };
 	cv::Mat imgRes;
 
@@ -501,12 +501,11 @@ bool ObjectSensor::findObject() {
 		_sift.camera.updatePmatUsingParam();
 
 		// set result image size
-		m_ResultImg.data.image.width = _grayL.w;
-		m_ResultImg.data.image.height = _grayL.h;
-		m_ResultImg.data.image.format = CF_RGB;
+		//m_ResultImg.data.image.width = _grayL.w;
+		//m_ResultImg.data.image.height = _grayL.h;
+		//m_ResultImg.data.image.format = CF_RGB;
 		// allocate buffer for result image
-		m_ResultImg.data.image.raw_data.length((_grayL.w + _grayR.w)
-			* _grayL.h * 3);
+		//m_ResultImg.data.image.raw_data.length((_grayL.w + _grayR.w)* _grayL.h * 3);
 
 		//std::cout << "single image is read" << std::endl;
 
@@ -534,32 +533,59 @@ bool ObjectSensor::findObject() {
 		// convert images format to float gray image
 		if (_grayL.type != IMGH::PIXEL_FLOAT) {
 			//std::cout << "converting image type" << std::ends;
-			IMGH::ImageConverter conv;
-			IMGH::Image imgL(_grayL.w, _grayL.h, _srcPixel_tL,
-				(void*)&(m_SingleImage.data.image.raw_data[0]));
-			conv.convertImage(&imgL, &_grayL, IMGH::PIXEL_FLOAT);//グレースケールに変えてる？
+			//IMGH::ImageConverter conv;
+			//IMGH::Image imgL(_grayL.w, _grayL.h, _srcPixel_tL,(void*)&(m_SingleImage.data.image.raw_data[0]));
+			//conv.convertImage(&imgL, &_grayL, IMGH::PIXEL_FLOAT);//グレースケールに変えてる？
 			//std::cout << " ... done" << std::endl;
 		}
 
 		int width = m_SingleImage.data.image.width;
 		int height = m_SingleImage.data.image.height;
 		int channels = (m_SingleImage.data.image.format == CF_GRAY) ? 1 :
-			(m_SingleImage.data.image.format == CF_RGB) ? 3 :
+			(m_SingleImage.data.image.format == CF_RGB || m_SingleImage.data.image.format == CF_PNG || m_SingleImage.data.image.format == CF_JPEG) ? 3 :
 			(m_SingleImage.data.image.raw_data.length() / width / height);
 		if (channels == 3)
 			imageC.create(height, width, CV_8UC3);
 		else
 			imageC.create(height, width, CV_8UC1);
 
-		for (int i = 0; i < height; i++){
-			memcpy(&imageC.data[i*imageC.step],
-				&m_SingleImage.data.image.raw_data[i*width*channels],
-				sizeof(unsigned char)*width*channels);
+
+		long data_length = m_SingleImage.data.image.raw_data.length();
+		long image_size = width*height*channels;
+
+		if (m_SingleImage.data.image.format == Img::CF_RGB)
+		{
+			for (int n = 0; n < height; n++)
+			{
+
+				memcpy(&imageC.data[n*imageC.step], &m_SingleImage.data.image.raw_data[n*width*channels], sizeof(unsigned char)*width*channels);
+
+				//std::cout << "RGB" << std::endl;
+			}
+			if (channels == 3)
+				cv::cvtColor(imageC, imageC, CV_BGR2RGB);
+		}
+		else if (m_SingleImage.data.image.format == Img::CF_JPEG || m_SingleImage.data.image.format == Img::CF_PNG)
+		{
+			std::vector<uchar> compressed_image = std::vector<uchar>(data_length);
+			memcpy(&compressed_image[0], &m_SingleImage.data.image.raw_data[0], sizeof(unsigned char) * data_length);
+
+			//Decode received compressed image
+			cv::Mat decoded_image;
+			if (channels == 3)
+			{
+				decoded_image = cv::imdecode(cv::Mat(compressed_image), CV_LOAD_IMAGE_COLOR);
+				cv::cvtColor(decoded_image, imageC, CV_RGB2BGR);
+
+			}
+			else
+			{
+				decoded_image = cv::imdecode(cv::Mat(compressed_image), CV_LOAD_IMAGE_GRAYSCALE);
+				imageC = decoded_image;
+			}
 		}
 
-		cv::cvtColor(imageC, imageC, CV_BGR2RGB);
 
-		
 		// check time of conversion
 		time_log[1] = timer.checkTime();
 		time_log[2] = timer.checkTime();
@@ -567,7 +593,7 @@ bool ObjectSensor::findObject() {
 
 		// check time of SIFT extruction
 		time_log[3] = timer.checkTime();
-		
+
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		//カメラ画像
 		std::vector<cv::KeyPoint>keypoint2;
@@ -618,16 +644,16 @@ bool ObjectSensor::findObject() {
 		//十分な対応点がある
 		if (good_matches.size() > 20)
 		{
-			std::vector<cv::Point2f>obj, scene,obj_h,scene_h;
+			std::vector<cv::Point2f>obj, scene, obj_h, scene_h;
 			for (int j = 0; j < (int)good_matches.size(); j++)
 			{
 				obj.push_back(keypoint1[good_matches[j].queryIdx].pt);
 				scene.push_back(keypoint2[good_matches[j].trainIdx].pt);
 				//ホモグラフィ推定用
-				
-				obj_h.push_back(keypoint1[good_matches[j].queryIdx].pt+cv::Point2f(_sift.refer.xywh[0], _sift.refer.xywh[1]));
-				scene_h.push_back(keypoint2[good_matches[j].trainIdx].pt );
-			
+
+				obj_h.push_back(keypoint1[good_matches[j].queryIdx].pt + cv::Point2f(_sift.refer.xywh[0], _sift.refer.xywh[1]));
+				scene_h.push_back(keypoint2[good_matches[j].trainIdx].pt);
+
 			}
 
 
@@ -672,7 +698,7 @@ bool ObjectSensor::findObject() {
 				cv::line(imgRes, scene_corners[1] + cv::Point2d(imageOC.cols, 0), scene_corners[2] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
 				cv::line(imgRes, scene_corners[2] + cv::Point2d(imageOC.cols, 0), scene_corners[3] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
 				cv::line(imgRes, scene_corners[3] + cv::Point2d(imageOC.cols, 0), scene_corners[0] + cv::Point2d(imageOC.cols, 0), cv::Scalar(0, 255, 0), 4);
-				
+
 
 				//ホモグラフィ行列を配列に変換
 				for (int y = 0; y < 3; y++)
@@ -684,7 +710,7 @@ bool ObjectSensor::findObject() {
 				}
 
 				//Ho[8]が桁落ちして、１でなくなっているのを補正
-				if (0.99999<Ho[8]&&Ho[8]<1.000001)
+				if (0.99999<Ho[8] && Ho[8]<1.000001)
 				{
 					Ho[8] = (double)1.0;
 				}
@@ -694,7 +720,7 @@ bool ObjectSensor::findObject() {
 				//SIFT特徴量の対応関係をチェック
 				std::cout << "start to match sift feature" << std::endl;
 				//found_2d = _sift.findSIFTPattern( Rco, Tco);
-				found_2d=_sift.getResult3DPosewithH(Ho,Rco, Tco);
+				found_2d = _sift.getResult3DPosewithH(Ho, Rco, Tco);
 				//found_2d=_sift.getResult3DPose(Rco, Tco);
 				std::cout << "OpenCV H" << std::endl;
 				std::cout << H << std::endl;
@@ -716,12 +742,12 @@ bool ObjectSensor::findObject() {
 
 				/*
 				RTcamera.create(3, 4, CV_64F);
-				
+
 				std::fstream ofs("test.log", std::ios::out | std::ios::app | std::ios::ate);
 				if (!ofs.is_open())
 				{
-					std::cout << "ファイルが開けません" << std::endl;
-					return -1;
+				std::cout << "ファイルが開けません" << std::endl;
+				return -1;
 				}
 				*/
 
@@ -729,13 +755,13 @@ bool ObjectSensor::findObject() {
 			else
 			{
 				std::cout << "ホモグラフィ行列が空です" << std::endl;
-				cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(),2);
+				cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), 2);
 			}
 		}
 		else
 		{
 			std::cout << "マッチング点が少なすぎます" << std::endl;
-			cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(),2);
+			cv::drawMatches(imageOC, keypoint1, imageC, keypoint2, good_matches, imgRes, cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), 2);
 		}
 
 
@@ -749,7 +775,7 @@ bool ObjectSensor::findObject() {
 		// find the reference pattern using 'B'oth ('L'eft and 'R'ight) pattern finders
 
 
-		
+
 
 		// display result
 		if (m_Display == "on") {
@@ -757,16 +783,18 @@ bool ObjectSensor::findObject() {
 			m_ResultImg.data.image.width = imgRes.cols;
 			m_ResultImg.data.image.height = imgRes.rows;
 			m_ResultImg.data.image.format = CF_RGB;
+			m_ResultImg.data.image.raw_data.length(imgRes.cols*imgRes.rows * 3);
 			// allocate buffer for result image
-			m_ResultImg.data.image.raw_data.length(imgRes.cols * imgRes.rows * 3);
+
 			cv::Mat imgResBGR;
 			imgRes.copyTo(imgResBGR);
 			cv::cvtColor(imgResBGR, imgResBGR, CV_BGR2RGB);
 			for (int j = 0; j < height; j++)
 			{
-				memcpy(&m_ResultImg.data.image.raw_data[j*imgResBGR.cols * channels], &imgResBGR.data[j*imgResBGR.step], sizeof(unsigned char)*imgResBGR.cols*channels);
+				memcpy(&m_ResultImg.data.image.raw_data[j*imgResBGR.cols * channels], &imgResBGR.data[j*imgResBGR.step], imgResBGR.cols*channels);
 			}
-
+			m_ResultImg.tm = m_SingleImage.tm;
+			m_ResultImgOut.write();
 			cv::namedWindow("Result_Image", CV_WINDOW_AUTOSIZE);
 			cv::imshow("Result_Image", imgRes);
 			cv::waitKey(1);
@@ -808,14 +836,14 @@ bool ObjectSensor::findObject() {
 	} //end of "if(m_SingleImageIn.isNew())": new image is pushed?
 
 	timer.stop();
-	
-		// write time's log
-		FILE *fp;
-		if ((fp = fopen(_logname.c_str(), "a+")) == 0) {
-			;
-		}
-		else{
-		if (found_2d ) {
+
+	// write time's log
+	FILE *fp;
+	if ((fp = fopen(_logname.c_str(), "a+")) == 0) {
+		;
+	}
+	else{
+		if (found_2d) {
 			fprintf(fp, "%s : ", m_ObjName.c_str());
 			for (int i = 0; i < 6; ++i)
 				fprintf(fp, "%.6f ", time_log[i]);
@@ -916,7 +944,6 @@ void ObjectSensor::invokeEvent(const std::string &ev) {
 }
 
 //ここまで
-
 
 
 extern "C"
